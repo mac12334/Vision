@@ -1,6 +1,7 @@
 import cv2
 import apriltag
 import numpy
+import math
 
 
 cap = cv2.VideoCapture(0)
@@ -9,7 +10,7 @@ detect = apriltag.Detector(op)
 
 calib = numpy.load("calibration_data.npz")
 cam_mtx = calib["camera_matrix"]
-camera_params = [cam_mtx[0, 0], cam_mtx[1, 1], cam_mtx[0, 2], cam_mtx[2, 2]]
+camera_params = [cam_mtx[0, 0], cam_mtx[1, 1], cam_mtx[0, 2], cam_mtx[1, 2]]
 
 
 while True:
@@ -23,7 +24,11 @@ while True:
    result = detect.detect(gray)
   
    for r in result:
-       print(detect.detection_pose(r, camera_params))
+       arr, _, _ = detect.detection_pose(r, camera_params)
+       yaw = math.atan2(arr[1][0], arr[0][0])
+       pitch = math.atan2(-arr[2][0], math.sqrt(arr[2][1]**2 + arr[2][2]**2))
+       roll = math.atan2(arr[2][1], arr[2][2])
+
        pa, pb, pc, pd = r.corners
        pa = int(pa[0]), int(pa[1])
        pb = int(pb[0]), int(pb[1])
