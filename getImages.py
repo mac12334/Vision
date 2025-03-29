@@ -2,6 +2,8 @@ import cv2
 
 cap = cv2.VideoCapture(0)
 
+counter = 0
+
 while True:
     ret, frame = cap.read()
 
@@ -11,7 +13,8 @@ while True:
 
     has, _ = cv2.findChessboardCorners(gray,(7, 7))
     if has:
-        print("wokrs")
+        print("works" + str(counter))
+        counter += 1
 
     cv2.imshow("name", gray)
     if cv2.waitKey(1) == ord("q"):
