@@ -48,7 +48,7 @@ public class Client {
     }
 
     public void send() {
-        writer.println("hello world");
+        writer.print("PLS\n");
         writer.flush();
     }
 

@@ -21,51 +21,67 @@ host.listen(1)
 apriltagData = convert_to_dict.allInOne("./apriltags.txt")
 
 client, _ = host.accept()
-print("got here")
 s = ""
 
+def sendRel(cli: socket.socket, sendable: str) -> None:
+  	cli.send(sendable.encode("ascii"))
+
+def sendFieldRel(cli: socket.socket, id: int, fX: float, fY: float) -> None:
+  	cli.send(f"{id},{int(fX * 1000)},{int(fY * 1000)}\n".encode("ascii"))
+
 while True:
-  rec = client.recv(1024)
+	rec = client.recv(1024).decode()
+	print(rec)
 
-  res, frame = cap.read()
+	res, frame = cap.read()
 
-  if not res:
-    print("failed to load")
-    break
-  gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-  result = detect.detect(gray)
+	if not res:
+		print("failed to load")
+		break
+	gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+	result = detect.detect(gray)
 
 
-  if len(result) == 0:
-    s = "0,0,0,0\n"
+	if len(result) == 0:
+		s = "0,0,0,0\n"
 
-  for r in result:
-    arr, _, _ = detect.detection_pose(r, camera_params)
-    yaw = math.atan2(arr[1][0], arr[0][0])
-    pitch = math.atan2(-arr[2][0], math.sqrt(arr[2][1]**2 + arr[2][2]**2))
-    roll = math.atan2(arr[2][1], arr[2][2])
+	actualX, actualY = 0, 0
+	id = 0
 
-       # the metrics is assuming the apriltag is 1 unit by 1 unit to fix this you need to multiply by the height of the apriltag and divide it by 12
+	for r in result:
+		arr, _, _ = detect.detection_pose(r, camera_params)
+		yaw = math.atan2(arr[1][0], arr[0][0])
+		pitch = math.atan2(-arr[2][0], math.sqrt(arr[2][1]**2 + arr[2][2]**2))
+		roll = math.atan2(arr[2][1], arr[2][2])
 
-       # roboY you need to inverse x to get the y of the robot, Y is left of the robot
-    roboY = (((arr[0][3] * -1) * 0.15875))
-       # roboX you need to use z to get x, basically X is forward
-    roboX = (((arr[2][3]) * 0.15875))
-       
-       #roboTheta gets the angle from roboY and the nearest apriltag
-    roboTheta = -(math.degrees(yaw))
+		# the metrics is assuming the apriltag is 1 unit by 1 unit to fix this you need to multiply by the height of the apriltag and divide it by 12
 
-       # put the current position to be relative to the field
-    apRefPos = apriltagData[r.tag_id]
-       
-    s = f"{r.tag_id},{int(roboX * 1000)},{int(roboY * 1000)},{int(roboTheta * 1000)}\n"
+		# roboY you need to inverse x to get the y of the robot, Y is left of the robot
+		roboY = (((arr[0][3] * -1) * 0.15875))
+		# roboX you need to use z to get x, basically X is forward
+		roboX = (((arr[2][3]) * 0.15875))
+		
+		#roboTheta gets the angle from roboY and the nearest apriltag
+		roboTheta = -(math.degrees(yaw))
 
-  client.send(s.encode("ascii"))
-  print(s)
+		# put the current position to be relative to the field
+		apRefPos = apriltagData[r.tag_id]
+		
+		s = f"{r.tag_id},{int(roboX * 1000)},{int(roboY * 1000)},{int(roboTheta * 1000)}\n"
+		actualX = (roboX * math.cos(apRefPos[2])) - (roboY * math.sin(apRefPos[2]))
+		actualY = (roboX * math.sin(apRefPos[2])) + (roboY * math.cos(apRefPos[2]))
+		id = r.tag_id
 
-  if cv2.waitKey(1) == ord("q"):
-    client.send("STP\n".encode("ascii"))
-    break
+	if rec == "PLS\n":
+		sendRel(client, s)
+		print("got here")
+	else:
+		print("not here")
+		sendFieldRel(client, id, actualX, actualY)
+
+	if cv2.waitKey(1) == ord("q"):
+		client.send("STP\n".encode("ascii"))
+		break
 cap.release()
 cv2.destroyAllWindows()
 host.close()
